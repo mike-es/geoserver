@@ -200,8 +200,8 @@ abstract class DimensionHelper {
         
         // custom dimensions
         if (hasCustomDimensions) {
-            for (String key : customDimensions.keySet()) {
-                handleCustomDimensionRaster(key, dimensions);
+            for (Map.Entry<String, DimensionInfo> e : customDimensions.entrySet()) {
+                handleCustomDimensionRaster(e.getKey(), e.getValue(), dimensions);
             }
         }
     }
@@ -221,7 +221,7 @@ abstract class DimensionHelper {
         writeTimeDimension(timeMetadata);
     }
     
-    private void handleCustomDimensionRaster(String dimName, 
+    private void handleCustomDimensionRaster(String dimName, DimensionInfo dimValue,
             ReaderDimensionsAccessor dimAccessor) {
         final TreeSet<Object> domain = dimAccessor.getDomain(dimName);
         final String metadata;
@@ -238,9 +238,9 @@ abstract class DimensionHelper {
             metadata = sb.substring(0, sb.length() - 1);
         }
         if (dimName.regionMatches(true, 0, "dim_", 0, 4)) {
-            writeDimension(dimName.substring(4), metadata);
+            writeDimension(dimName.substring(4), dimValue, metadata);
         } else {
-            writeDimension(dimName, metadata);
+            writeDimension(dimName, dimValue, metadata);
         }
     }
 
@@ -477,17 +477,21 @@ abstract class DimensionHelper {
         element("Dimension", elevationMetadata, elevDim);
     }
     
-    private void writeDimension(String name, String metadata) {
+    private void writeDimension(String name, DimensionInfo info, String metadata) {
         AttributesImpl dim = new AttributesImpl();
         dim.addAttribute("", "name", "name", "", name);
         if (mode == Mode.WMS11) {
             element("Extent", metadata, dim);
         } else {
-            // For now add empty units attribute so that validation succeeds.
-            // Code to make this value configurable would conflict with the
-            // pending elevation units patch.
-            dim.addAttribute("", "units", "units", "", "");
-            
+            String units = info.getUnits();
+            if (units == null) {
+                units = "";
+            }
+            dim.addAttribute("", "units", "units", "", units);
+            final String unitSymbol = info.getUnitSymbol();
+            if (unitSymbol != null && !"".equals(unitSymbol) && !"".equals(units)) {
+                dim.addAttribute("", "unitSymbol", "unitSymbol", "", unitSymbol);
+            }
             element("Dimension", metadata, dim);
         }
     }
